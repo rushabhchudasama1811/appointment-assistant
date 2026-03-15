@@ -1,0 +1,307 @@
+<html>
+<head>
+<title>discovery.ipynb</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #bcbec4;}
+.s1 { color: #cf8e6d;}
+.s2 { color: #7a7e85;}
+.s3 { color: #bcbec4;}
+.s4 { color: #6aab73;}
+.s5 { color: #2aacb8;}
+.ls0 { height: 1px; border-width: 0; color: #43454a; background-color:#43454a}
+</style>
+</head>
+<body bgcolor="#191a1c">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+discovery.ipynb</font>
+</center></td></tr></table>
+<pre><span class="s0">#%% 
+</span><span class="s1">import </span><span class="s0">os</span>
+<span class="s1">from </span><span class="s0">dotenv </span><span class="s1">import </span><span class="s0">load_dotenv</span>
+<span class="s1">from </span><span class="s0">openai </span><span class="s1">import </span><span class="s0">OpenAI</span>
+<span class="s1">import </span><span class="s0">gradio </span><span class="s1">as </span><span class="s0">gr</span>
+<span class="s1">import </span><span class="s0">sqlite3</span>
+<span class="s1">import </span><span class="s0">json</span>
+<span class="s1">import </span><span class="s0">uuid</span>
+
+<hr class="ls0"><span class="s0">#%% 
+</span><span class="s2"># constants</span>
+<span class="s0">load_dotenv</span><span class="s3">(</span><span class="s0">override</span><span class="s3">=</span><span class="s1">True</span><span class="s3">)</span>
+<span class="s0">api_key </span><span class="s3">= </span><span class="s0">os</span><span class="s3">.</span><span class="s0">getenv</span><span class="s3">(</span><span class="s4">'OPENAI_API_KEY'</span><span class="s3">)</span>
+<span class="s0">MODEL </span><span class="s3">= </span><span class="s4">&quot;gpt-4.1-mini&quot;</span>
+<span class="s0">openai </span><span class="s3">= </span><span class="s0">OpenAI</span><span class="s3">()</span>
+<span class="s0">DB </span><span class="s3">= </span><span class="s4">&quot;prices.db&quot;</span>
+<hr class="ls0"><span class="s0">#%% 
+message </span><span class="s3">= </span><span class="s4">&quot;Hello, GPT! This is my first ever message to you! Hi!&quot;</span>
+
+<span class="s0">messages </span><span class="s3">= [{</span><span class="s4">&quot;role&quot;</span><span class="s3">: </span><span class="s4">&quot;user&quot;</span><span class="s3">, </span><span class="s4">&quot;content&quot;</span><span class="s3">: </span><span class="s0">message</span><span class="s3">}]</span>
+
+<span class="s0">messages</span>
+<hr class="ls0"><span class="s0">#%% 
+openai </span><span class="s3">= </span><span class="s0">OpenAI</span><span class="s3">()</span>
+
+<span class="s0">response </span><span class="s3">= </span><span class="s0">openai</span><span class="s3">.</span><span class="s0">chat</span><span class="s3">.</span><span class="s0">completions</span><span class="s3">.</span><span class="s0">create</span><span class="s3">(</span><span class="s0">model</span><span class="s3">=</span><span class="s4">&quot;gpt-5-nano&quot;</span><span class="s3">, </span><span class="s0">messages</span><span class="s3">=</span><span class="s0">messages</span><span class="s3">)</span>
+<span class="s0">response</span><span class="s3">.</span><span class="s0">choices</span><span class="s3">[</span><span class="s5">0</span><span class="s3">].</span><span class="s0">message</span><span class="s3">.</span><span class="s0">content</span><hr class="ls0"><span class="s0">#%% 
+system_message </span><span class="s3">= (</span><span class="s4">f&quot;you are a helpfull assistant to a doctors clinic named as Sanjeevni, your job is to provide an appointment to the patients, doctor consult patient in a span of 30 min so appointment will also aligned with that time span and doctor only comes to visit this clinic on Monday, Wednesday and Friday between 2:30PM to 6:30PM and doctor takes 1 hour of break in between the appointment usually 4:30PM to 5:30PM, Give short, courteous answers, no more than 1 sentence. Always be accurate. If you don't know the answer, say so. </span><span class="s1">\ 
+    </span><span class="s4">always green patients with atmost politeness and for that always ask the patient name first&quot;</span><span class="s3">)</span><hr class="ls0"><span class="s0">#%% 
+messages </span><span class="s3">= [{</span><span class="s4">&quot;role&quot;</span><span class="s3">: </span><span class="s4">&quot;system&quot;</span><span class="s3">, </span><span class="s4">&quot;content&quot;</span><span class="s3">: </span><span class="s0">system_message</span><span class="s3">}]</span>
+<span class="s0">messages</span><hr class="ls0"><span class="s0">#%% 
+</span><span class="s1">def </span><span class="s0">chat</span><span class="s3">(</span><span class="s0">message</span><span class="s3">, </span><span class="s0">history</span><span class="s3">):</span>
+    <span class="s0">history </span><span class="s3">= [{</span><span class="s4">&quot;role&quot;</span><span class="s3">:</span><span class="s0">h</span><span class="s3">[</span><span class="s4">&quot;role&quot;</span><span class="s3">], </span><span class="s4">&quot;content&quot;</span><span class="s3">:</span><span class="s0">h</span><span class="s3">[</span><span class="s4">&quot;content&quot;</span><span class="s3">]} </span><span class="s1">for </span><span class="s0">h </span><span class="s1">in </span><span class="s0">history</span><span class="s3">]</span>
+    <span class="s0">messages </span><span class="s3">= [{</span><span class="s4">&quot;role&quot;</span><span class="s3">: </span><span class="s4">&quot;system&quot;</span><span class="s3">, </span><span class="s4">&quot;content&quot;</span><span class="s3">: </span><span class="s0">system_message</span><span class="s3">}] + </span><span class="s0">history </span><span class="s3">+ [{</span><span class="s4">&quot;role&quot;</span><span class="s3">: </span><span class="s4">&quot;user&quot;</span><span class="s3">, </span><span class="s4">&quot;content&quot;</span><span class="s3">: </span><span class="s0">message</span><span class="s3">}]</span>
+    <span class="s0">response </span><span class="s3">= </span><span class="s0">openai</span><span class="s3">.</span><span class="s0">chat</span><span class="s3">.</span><span class="s0">completions</span><span class="s3">.</span><span class="s0">create</span><span class="s3">(</span><span class="s0">model</span><span class="s3">=</span><span class="s0">MODEL</span><span class="s3">, </span><span class="s0">messages</span><span class="s3">=</span><span class="s0">messages</span><span class="s3">)</span>
+    <span class="s1">return </span><span class="s0">response</span><span class="s3">.</span><span class="s0">choices</span><span class="s3">[</span><span class="s5">0</span><span class="s3">].</span><span class="s0">message</span><span class="s3">.</span><span class="s0">content</span><hr class="ls0"><span class="s0">#%% 
+gr</span><span class="s3">.</span><span class="s0">ChatInterface</span><span class="s3">(</span><span class="s0">fn</span><span class="s3">=</span><span class="s0">chat</span><span class="s3">, </span><span class="s0">type</span><span class="s3">=</span><span class="s4">&quot;messages&quot;</span><span class="s3">).</span><span class="s0">launch</span><span class="s3">()</span><hr class="ls0"><span class="s0">#%% 
+timeslots </span><span class="s3">= </span><span class="s4">&quot;&quot;&quot;CREATE TABLE IF NOT EXISTS timeslots ( 
+    timeslot_id int AUTO_INCREMENT PRIMARY KEY, 
+    timeslot varchar(255) NOT NULL, 
+    doctor_id int, 
+    CONSTRAINT fk_doctor 
+    FOREIGN KEY (doctor_id) 
+    REFERENCES doctors(doctor_id) 
+)&quot;&quot;&quot;</span>
+
+<span class="s0">appointments </span><span class="s3">= </span><span class="s4">&quot;&quot;&quot; 
+CREATE TABLE IF NOT EXISTS appointments ( 
+    appointment_id int AUTO_INCREMENT PRIMARY KEY, 
+    patient_name varchar(255) NOT NULL, 
+    patient_contact varchar(255) NOT NULL, 
+    patient_issue varchar(255) NOT NULL, 
+    doctor_name varchar(255) NOT NULL, 
+    doctor_id int, 
+    appointment_time varchar(255) NOT NULL, 
+    CONSTRAINT fk_doctor 
+    FOREIGN KEY (doctor_id) 
+    REFERENCES doctors(doctor_id) 
+) 
+&quot;&quot;&quot;</span>
+
+<span class="s0">doctors </span><span class="s3">= </span><span class="s4">&quot;&quot;&quot; 
+CREATE TABLE IF NOT EXISTS doctors ( 
+    doctor_id int AUTO_INCREMENT PRIMARY KEY, 
+    name varchar(255) NOT NULL, 
+    speciality varchar(255) NOT NULL 
+) 
+&quot;&quot;&quot;</span><hr class="ls0"><span class="s0">#%% 
+DB </span><span class="s3">= </span><span class="s4">&quot;clinic.db&quot;</span>
+
+<span class="s1">with </span><span class="s0">sqlite3</span><span class="s3">.</span><span class="s0">connect</span><span class="s3">(</span><span class="s0">DB</span><span class="s3">) </span><span class="s1">as </span><span class="s0">conn</span><span class="s3">:</span>
+    <span class="s0">cursor </span><span class="s3">= </span><span class="s0">conn</span><span class="s3">.</span><span class="s0">cursor</span><span class="s3">()</span>
+    <span class="s0">cursor</span><span class="s3">.</span><span class="s0">execute</span><span class="s3">(</span><span class="s0">doctors</span><span class="s3">)</span>
+    <span class="s0">cursor</span><span class="s3">.</span><span class="s0">execute</span><span class="s3">(</span><span class="s0">timeslots</span><span class="s3">)</span>
+    <span class="s0">cursor</span><span class="s3">.</span><span class="s0">execute</span><span class="s3">(</span><span class="s0">appointments</span><span class="s3">)</span>
+    <span class="s0">conn</span><span class="s3">.</span><span class="s0">commit</span><span class="s3">()</span><hr class="ls0"><span class="s0">#%% 
+</span>
+<span class="s1">def </span><span class="s0">getDoctors</span><span class="s3">():</span>
+    <span class="s0">print</span><span class="s3">(</span><span class="s4">f&quot;DATABASE TOOL CALLED: Getting Doctors Details&quot;</span><span class="s3">, </span><span class="s0">flush</span><span class="s3">=</span><span class="s1">True</span><span class="s3">)</span>
+    <span class="s0">empty_dict </span><span class="s3">= {}</span>
+    <span class="s0">arrayasd </span><span class="s3">= []</span>
+    <span class="s1">with </span><span class="s0">sqlite3</span><span class="s3">.</span><span class="s0">connect</span><span class="s3">(</span><span class="s0">DB</span><span class="s3">) </span><span class="s1">as </span><span class="s0">conn</span><span class="s3">:</span>
+        <span class="s0">cursor </span><span class="s3">= </span><span class="s0">conn</span><span class="s3">.</span><span class="s0">cursor</span><span class="s3">()</span>
+        <span class="s0">cursor</span><span class="s3">.</span><span class="s0">execute</span><span class="s3">(</span><span class="s4">'SELECT * FROM doctors'</span><span class="s3">)</span>
+        <span class="s0">result </span><span class="s3">= </span><span class="s0">cursor</span><span class="s3">.</span><span class="s0">fetchall</span><span class="s3">()</span>
+        <span class="s1">for </span><span class="s0">row </span><span class="s1">in </span><span class="s0">result</span><span class="s3">:</span>
+            <span class="s0">dict_new </span><span class="s3">= {</span><span class="s4">'id'</span><span class="s3">: </span><span class="s0">str</span><span class="s3">(</span><span class="s0">row</span><span class="s3">[</span><span class="s5">0</span><span class="s3">]), </span><span class="s4">'name'</span><span class="s3">: </span><span class="s0">row</span><span class="s3">[</span><span class="s5">1</span><span class="s3">], </span><span class="s4">'speciality'</span><span class="s3">: </span><span class="s0">row</span><span class="s3">[</span><span class="s5">2</span><span class="s3">]}</span>
+            <span class="s0">empty_dict</span><span class="s3">[</span><span class="s0">str</span><span class="s3">(</span><span class="s0">row</span><span class="s3">[</span><span class="s5">0</span><span class="s3">])] = </span><span class="s0">dict_new</span>
+            <span class="s0">arrayasd </span><span class="s3">= </span><span class="s0">arrayasd </span><span class="s3">+ [</span><span class="s0">dict_new</span><span class="s3">]</span>
+        <span class="s1">return </span><span class="s0">json</span><span class="s3">.</span><span class="s0">dumps</span><span class="s3">(</span><span class="s0">arrayasd</span><span class="s3">)</span>
+
+<span class="s1">def </span><span class="s0">checkDoctorTimeslots</span><span class="s3">(</span><span class="s0">id</span><span class="s3">):</span>
+    <span class="s0">empty_dict </span><span class="s3">= {}</span>
+    <span class="s0">arrayasd </span><span class="s3">= []</span>
+    <span class="s1">with </span><span class="s0">sqlite3</span><span class="s3">.</span><span class="s0">connect</span><span class="s3">(</span><span class="s0">DB</span><span class="s3">) </span><span class="s1">as </span><span class="s0">conn</span><span class="s3">:</span>
+        <span class="s0">cursor </span><span class="s3">= </span><span class="s0">conn</span><span class="s3">.</span><span class="s0">cursor</span><span class="s3">()</span>
+        <span class="s0">cursor</span><span class="s3">.</span><span class="s0">execute</span><span class="s3">(</span><span class="s4">'SELECT * FROM timeslots WHERE doctor_id = ?'</span><span class="s3">, (</span><span class="s0">id</span><span class="s3">,))</span>
+        <span class="s0">result </span><span class="s3">= </span><span class="s0">cursor</span><span class="s3">.</span><span class="s0">fetchone</span><span class="s3">()</span>
+        <span class="s1">return </span><span class="s4">f&quot;Doctor Timeslots: </span><span class="s1">{</span><span class="s0">result</span><span class="s3">[</span><span class="s5">1</span><span class="s3">]</span><span class="s1">}</span><span class="s4">&quot;</span>
+
+<span class="s1">def </span><span class="s0">checkDoctorAppointments</span><span class="s3">(</span><span class="s0">id</span><span class="s3">):</span>
+    <span class="s0">empty_dict </span><span class="s3">= {}</span>
+    <span class="s0">arrayasd </span><span class="s3">= []</span>
+    <span class="s1">with </span><span class="s0">sqlite3</span><span class="s3">.</span><span class="s0">connect</span><span class="s3">(</span><span class="s0">DB</span><span class="s3">) </span><span class="s1">as </span><span class="s0">conn</span><span class="s3">:</span>
+        <span class="s0">cursor </span><span class="s3">= </span><span class="s0">conn</span><span class="s3">.</span><span class="s0">cursor</span><span class="s3">()</span>
+        <span class="s0">cursor</span><span class="s3">.</span><span class="s0">execute</span><span class="s3">(</span><span class="s4">'SELECT * FROM appointments WHERE doctor_id = ?'</span><span class="s3">, (</span><span class="s0">id</span><span class="s3">,))</span>
+        <span class="s0">result </span><span class="s3">= </span><span class="s0">cursor</span><span class="s3">.</span><span class="s0">fetchall</span><span class="s3">()</span>
+        <span class="s1">for </span><span class="s0">row </span><span class="s1">in </span><span class="s0">result</span><span class="s3">:</span>
+            <span class="s0">dict_new </span><span class="s3">= {</span><span class="s4">'id'</span><span class="s3">: </span><span class="s0">str</span><span class="s3">(</span><span class="s0">row</span><span class="s3">[</span><span class="s5">0</span><span class="s3">]), </span><span class="s4">'doctorId'</span><span class="s3">: </span><span class="s0">row</span><span class="s3">[</span><span class="s5">5</span><span class="s3">], </span><span class="s4">'doctorName'</span><span class="s3">: </span><span class="s0">row</span><span class="s3">[</span><span class="s5">4</span><span class="s3">], </span><span class="s4">'appointmentTime'</span><span class="s3">: </span><span class="s0">row</span><span class="s3">[</span><span class="s5">6</span><span class="s3">]}</span>
+            <span class="s0">empty_dict</span><span class="s3">[</span><span class="s0">str</span><span class="s3">(</span><span class="s0">row</span><span class="s3">[</span><span class="s5">0</span><span class="s3">])] = </span><span class="s0">dict_new</span>
+            <span class="s0">arrayasd </span><span class="s3">= </span><span class="s0">arrayasd </span><span class="s3">+ [</span><span class="s0">dict_new</span><span class="s3">]</span>
+        <span class="s1">return </span><span class="s0">json</span><span class="s3">.</span><span class="s0">dumps</span><span class="s3">(</span><span class="s0">arrayasd</span><span class="s3">)</span>
+
+<span class="s1">def </span><span class="s0">setDoctorAppointments</span><span class="s3">(</span><span class="s0">patient_name</span><span class="s3">, </span><span class="s0">patient_contact</span><span class="s3">, </span><span class="s0">patient_issue</span><span class="s3">, </span><span class="s0">doctor_name</span><span class="s3">, </span><span class="s0">doctor_id</span><span class="s3">, </span><span class="s0">appointment_time</span><span class="s3">):</span>
+    <span class="s0">appointment_id </span><span class="s3">= </span><span class="s0">str</span><span class="s3">(</span><span class="s0">uuid</span><span class="s3">.</span><span class="s0">uuid4</span><span class="s3">())</span>
+    <span class="s0">sql </span><span class="s3">= </span><span class="s4">&quot;&quot;&quot;INSERT INTO appointments(appointment_id, patient_name, patient_contact, patient_issue, doctor_name, doctor_id, appointment_time) 
+             VALUES(?,?,?,?,?,?,?)&quot;&quot;&quot;</span>
+    <span class="s1">with </span><span class="s0">sqlite3</span><span class="s3">.</span><span class="s0">connect</span><span class="s3">(</span><span class="s0">DB</span><span class="s3">) </span><span class="s1">as </span><span class="s0">conn</span><span class="s3">:</span>
+        <span class="s0">cursor </span><span class="s3">= </span><span class="s0">conn</span><span class="s3">.</span><span class="s0">cursor</span><span class="s3">()</span>
+        <span class="s0">cursor</span><span class="s3">.</span><span class="s0">execute</span><span class="s3">(</span><span class="s0">sql</span><span class="s3">, (</span><span class="s0">appointment_id</span><span class="s3">, </span><span class="s0">patient_name</span><span class="s3">, </span><span class="s0">patient_contact</span><span class="s3">, </span><span class="s0">patient_issue</span><span class="s3">, </span><span class="s0">doctor_name</span><span class="s3">, </span><span class="s0">doctor_id</span><span class="s3">, </span><span class="s0">appointment_time</span><span class="s3">,))</span>
+        <span class="s0">conn</span><span class="s3">.</span><span class="s0">commit</span><span class="s3">()</span>
+        <span class="s1">return </span><span class="s4">f&quot;Your Appointment has been confirmed successfully, Please be on time&quot;</span><hr class="ls0"><span class="s0">#%% 
+getDoctors</span><span class="s3">()</span><hr class="ls0"><span class="s0">#%% 
+checkDoctorTimeslots</span><span class="s3">(</span><span class="s4">'3'</span><span class="s3">)</span><hr class="ls0"><span class="s0">#%% 
+checkDoctorAppointments</span><span class="s3">(</span><span class="s5">1</span><span class="s3">)</span><hr class="ls0"><span class="s0">#%% 
+setDoctorAppointments</span><span class="s3">(</span>
+    <span class="s4">'tes2'</span><span class="s3">,</span>
+    <span class="s4">'8811881188'</span><span class="s3">,</span>
+    <span class="s4">'fracture'</span><span class="s3">,</span>
+    <span class="s4">'Rushabh'</span><span class="s3">,</span>
+    <span class="s4">'1'</span><span class="s3">,</span>
+    <span class="s4">'3:30PM to 4:00PM'</span>
+<span class="s3">)</span><hr class="ls0"><span class="s0">#%% 
+doctors_function </span><span class="s3">= {</span>
+    <span class="s4">&quot;name&quot;</span><span class="s3">: </span><span class="s4">&quot;getDoctors&quot;</span><span class="s3">,</span>
+    <span class="s4">&quot;description&quot;</span><span class="s3">: </span><span class="s4">&quot;Get All Doctors Details Visiting in Clinic&quot;</span><span class="s3">,</span>
+    <span class="s4">&quot;parameters&quot;</span><span class="s3">: {</span>
+        <span class="s4">&quot;type&quot;</span><span class="s3">: </span><span class="s4">&quot;object&quot;</span><span class="s3">,</span>
+        <span class="s4">&quot;properties&quot;</span><span class="s3">: {},</span>
+        <span class="s4">&quot;required&quot;</span><span class="s3">: [],</span>
+        <span class="s4">&quot;additionalProperties&quot;</span><span class="s3">: </span><span class="s1">False</span>
+    <span class="s3">}</span>
+<span class="s3">}</span>
+
+<span class="s0">check_doctor_timeslots_function </span><span class="s3">= {</span>
+    <span class="s4">&quot;name&quot;</span><span class="s3">: </span><span class="s4">&quot;checkDoctorTimeslots&quot;</span><span class="s3">,</span>
+    <span class="s4">&quot;description&quot;</span><span class="s3">: </span><span class="s4">&quot;Checks Doctors available TimeSlots&quot;</span><span class="s3">,</span>
+    <span class="s4">&quot;parameters&quot;</span><span class="s3">: {</span>
+        <span class="s4">&quot;type&quot;</span><span class="s3">: </span><span class="s4">&quot;object&quot;</span><span class="s3">,</span>
+        <span class="s4">&quot;properties&quot;</span><span class="s3">: {</span>
+            <span class="s4">&quot;id&quot;</span><span class="s3">: {</span>
+                <span class="s4">&quot;type&quot;</span><span class="s3">: </span><span class="s4">&quot;string&quot;</span><span class="s3">,</span>
+                <span class="s4">&quot;description&quot;</span><span class="s3">: </span><span class="s4">&quot;The DoctorId who will consult patient&quot;</span><span class="s3">,</span>
+            <span class="s3">},</span>
+        <span class="s3">},</span>
+        <span class="s4">&quot;required&quot;</span><span class="s3">: [</span><span class="s4">'id'</span><span class="s3">],</span>
+        <span class="s4">&quot;additionalProperties&quot;</span><span class="s3">: </span><span class="s1">False</span>
+    <span class="s3">}</span>
+<span class="s3">}</span>
+
+<span class="s0">checkDoctorAppointments_function </span><span class="s3">= {</span>
+    <span class="s4">&quot;name&quot;</span><span class="s3">: </span><span class="s4">&quot;checkDoctorAppointments&quot;</span><span class="s3">,</span>
+    <span class="s4">&quot;description&quot;</span><span class="s3">: </span><span class="s4">&quot;checks the doctors previously booked appointments&quot;</span><span class="s3">,</span>
+    <span class="s4">&quot;parameters&quot;</span><span class="s3">: {</span>
+        <span class="s4">&quot;type&quot;</span><span class="s3">: </span><span class="s4">&quot;object&quot;</span><span class="s3">,</span>
+        <span class="s4">&quot;properties&quot;</span><span class="s3">: {</span>
+            <span class="s4">&quot;id&quot;</span><span class="s3">: {</span>
+                <span class="s4">&quot;type&quot;</span><span class="s3">: </span><span class="s4">&quot;string&quot;</span><span class="s3">,</span>
+                <span class="s4">&quot;description&quot;</span><span class="s3">: </span><span class="s4">&quot;The DoctorId who will consult patient&quot;</span><span class="s3">,</span>
+            <span class="s3">},</span>
+        <span class="s3">},</span>
+        <span class="s4">&quot;required&quot;</span><span class="s3">: [</span><span class="s4">'id'</span><span class="s3">],</span>
+        <span class="s4">&quot;additionalProperties&quot;</span><span class="s3">: </span><span class="s1">False</span>
+    <span class="s3">}</span>
+<span class="s3">}</span>
+
+<span class="s0">setDoctorAppointments_function </span><span class="s3">= {</span>
+    <span class="s4">&quot;name&quot;</span><span class="s3">: </span><span class="s4">&quot;setDoctorAppointments&quot;</span><span class="s3">,</span>
+    <span class="s4">&quot;description&quot;</span><span class="s3">: </span><span class="s4">&quot;sets Doctors appointments at clinic&quot;</span><span class="s3">,</span>
+    <span class="s4">&quot;parameters&quot;</span><span class="s3">: {</span>
+        <span class="s4">&quot;type&quot;</span><span class="s3">: </span><span class="s4">&quot;object&quot;</span><span class="s3">,</span>
+        <span class="s4">&quot;properties&quot;</span><span class="s3">: {</span>
+            <span class="s4">&quot;patient_name&quot;</span><span class="s3">: {</span>
+                <span class="s4">&quot;type&quot;</span><span class="s3">: </span><span class="s4">&quot;string&quot;</span><span class="s3">,</span>
+                <span class="s4">&quot;description&quot;</span><span class="s3">: </span><span class="s4">&quot;Name of the patient&quot;</span><span class="s3">,</span>
+            <span class="s3">},</span>
+            <span class="s4">&quot;patient_contact&quot;</span><span class="s3">: {</span>
+                <span class="s4">&quot;type&quot;</span><span class="s3">: </span><span class="s4">&quot;string&quot;</span><span class="s3">,</span>
+                <span class="s4">&quot;description&quot;</span><span class="s3">: </span><span class="s4">&quot;Contact details (Phone Number) of the patient&quot;</span><span class="s3">,</span>
+            <span class="s3">},</span>
+            <span class="s4">&quot;patient_issue&quot;</span><span class="s3">: {</span>
+                <span class="s4">&quot;type&quot;</span><span class="s3">: </span><span class="s4">&quot;string&quot;</span><span class="s3">,</span>
+                <span class="s4">&quot;description&quot;</span><span class="s3">: </span><span class="s4">&quot;patient illness &quot;</span><span class="s3">,</span>
+            <span class="s3">},</span>
+            <span class="s4">&quot;doctor_name&quot;</span><span class="s3">: {</span>
+                <span class="s4">&quot;type&quot;</span><span class="s3">: </span><span class="s4">&quot;string&quot;</span><span class="s3">,</span>
+                <span class="s4">&quot;description&quot;</span><span class="s3">: </span><span class="s4">&quot;Doctor who will going to consult the patient&quot;</span><span class="s3">,</span>
+            <span class="s3">},</span>
+            <span class="s4">&quot;doctor_id&quot;</span><span class="s3">: {</span>
+                <span class="s4">&quot;type&quot;</span><span class="s3">: </span><span class="s4">&quot;string&quot;</span><span class="s3">,</span>
+                <span class="s4">&quot;description&quot;</span><span class="s3">: </span><span class="s4">&quot;The DoctorId who will consult patient&quot;</span><span class="s3">,</span>
+            <span class="s3">},</span>
+            <span class="s4">&quot;appointment_time&quot;</span><span class="s3">: {</span>
+                <span class="s4">&quot;type&quot;</span><span class="s3">: </span><span class="s4">&quot;string&quot;</span><span class="s3">,</span>
+                <span class="s4">&quot;description&quot;</span><span class="s3">: </span><span class="s4">&quot;Appointment time of the consultation in 30 min period. for Example 2:30PM to 3:00PM&quot;</span><span class="s3">,</span>
+            <span class="s3">},</span>
+        <span class="s3">},</span>
+        <span class="s4">&quot;required&quot;</span><span class="s3">: [</span><span class="s4">'patient_name'</span><span class="s3">, </span><span class="s4">'patient_contact'</span><span class="s3">, </span><span class="s4">'patient_issue'</span><span class="s3">, </span><span class="s4">'doctor_name'</span><span class="s3">, </span><span class="s4">'doctor_id'</span><span class="s3">, </span><span class="s4">'appointment_time'</span><span class="s3">],</span>
+        <span class="s4">&quot;additionalProperties&quot;</span><span class="s3">: </span><span class="s1">False</span>
+    <span class="s3">}</span>
+<span class="s3">}</span>
+<span class="s0">tools </span><span class="s3">= [</span>
+    <span class="s3">{</span><span class="s4">&quot;type&quot;</span><span class="s3">: </span><span class="s4">&quot;function&quot;</span><span class="s3">, </span><span class="s4">&quot;function&quot;</span><span class="s3">: </span><span class="s0">doctors_function</span><span class="s3">},</span>
+    <span class="s3">{</span><span class="s4">&quot;type&quot;</span><span class="s3">: </span><span class="s4">&quot;function&quot;</span><span class="s3">, </span><span class="s4">&quot;function&quot;</span><span class="s3">: </span><span class="s0">check_doctor_timeslots_function</span><span class="s3">},</span>
+    <span class="s3">{</span><span class="s4">&quot;type&quot;</span><span class="s3">: </span><span class="s4">&quot;function&quot;</span><span class="s3">, </span><span class="s4">&quot;function&quot;</span><span class="s3">: </span><span class="s0">checkDoctorAppointments_function</span><span class="s3">},</span>
+    <span class="s3">{</span><span class="s4">&quot;type&quot;</span><span class="s3">: </span><span class="s4">&quot;function&quot;</span><span class="s3">, </span><span class="s4">&quot;function&quot;</span><span class="s3">: </span><span class="s0">setDoctorAppointments_function</span><span class="s3">},</span>
+<span class="s3">]</span>
+<hr class="ls0"><span class="s0">#%% 
+tools</span><hr class="ls0"><span class="s0">#%% 
+system_message </span><span class="s3">= (</span><span class="s4">f&quot;you are a helpfull and clever assistant to a doctors clinic named as Sanjeevni, </span><span class="s1">\ 
+</span><span class="s4">your job is to provide an appointment to the patients, doctor consult patient in a span of 30 min so appointment will also aligned with that time span, </span><span class="s1">\ 
+</span><span class="s4">you can use the tools to get the doctors currently visiting clinic and their timeslots, also check the previous appointments of that doctor so that you don't book the different appointment at the same time</span><span class="s1">\ 
+    </span><span class="s4">doctor timeslot and its appointment at clinic will be grabbed with the ID of the doctor which you get with getdoctors tool call so for timeslot and appointments input parameter will be the id, use that to get the details </span><span class="s1">\ 
+</span><span class="s4">, Give short, courteous answers, no more than 1 sentence. Always be accurate. If you don't know the answer, say so. </span><span class="s1">\ 
+    </span><span class="s4">always first greet patients with atmost politeness and 2nd ask the patient name and 3rd ask what problem the patient is facing and then recommend doctor&quot;</span><span class="s3">)</span><hr class="ls0"><span class="s0">#%% 
+</span><span class="s1">def </span><span class="s0">handle_tool_calls</span><span class="s3">(</span><span class="s0">message</span><span class="s3">):</span>
+    <span class="s0">responses </span><span class="s3">= []</span>
+    <span class="s1">for </span><span class="s0">tool_call </span><span class="s1">in </span><span class="s0">message</span><span class="s3">.</span><span class="s0">tool_calls</span><span class="s3">:</span>
+        <span class="s1">if </span><span class="s0">tool_call</span><span class="s3">.</span><span class="s0">function</span><span class="s3">.</span><span class="s0">name </span><span class="s3">== </span><span class="s4">&quot;getDoctors&quot;</span><span class="s3">:</span>
+            <span class="s0">allDoctorDetails </span><span class="s3">= </span><span class="s0">getDoctors</span><span class="s3">()</span>
+            <span class="s0">responses</span><span class="s3">.</span><span class="s0">append</span><span class="s3">({</span>
+                <span class="s4">&quot;role&quot;</span><span class="s3">: </span><span class="s4">&quot;tool&quot;</span><span class="s3">,</span>
+                <span class="s4">&quot;content&quot;</span><span class="s3">: </span><span class="s0">allDoctorDetails</span><span class="s3">,</span>
+                <span class="s4">&quot;tool_call_id&quot;</span><span class="s3">: </span><span class="s0">tool_call</span><span class="s3">.</span><span class="s0">id</span>
+            <span class="s3">})</span>
+        <span class="s1">if </span><span class="s0">tool_call</span><span class="s3">.</span><span class="s0">function</span><span class="s3">.</span><span class="s0">name </span><span class="s3">== </span><span class="s4">&quot;checkDoctorTimeslots&quot;</span><span class="s3">:</span>
+            <span class="s0">allDoctorDetails </span><span class="s3">= </span><span class="s0">getDoctors</span><span class="s3">()</span>
+            <span class="s0">arguments </span><span class="s3">= </span><span class="s0">json</span><span class="s3">.</span><span class="s0">loads</span><span class="s3">(</span><span class="s0">tool_call</span><span class="s3">.</span><span class="s0">function</span><span class="s3">.</span><span class="s0">arguments</span><span class="s3">)</span>
+            <span class="s0">id </span><span class="s3">= </span><span class="s0">arguments</span><span class="s3">.</span><span class="s0">get</span><span class="s3">(</span><span class="s4">'id'</span><span class="s3">)</span>
+            <span class="s0">details </span><span class="s3">= </span><span class="s0">checkDoctorTimeslots</span><span class="s3">(</span><span class="s0">id</span><span class="s3">)</span>
+            <span class="s0">responses</span><span class="s3">.</span><span class="s0">append</span><span class="s3">({</span>
+                <span class="s4">&quot;role&quot;</span><span class="s3">: </span><span class="s4">&quot;tool&quot;</span><span class="s3">,</span>
+                <span class="s4">&quot;content&quot;</span><span class="s3">: </span><span class="s0">details</span><span class="s3">,</span>
+                <span class="s4">&quot;tool_call_id&quot;</span><span class="s3">: </span><span class="s0">tool_call</span><span class="s3">.</span><span class="s0">id</span>
+            <span class="s3">})</span>
+        <span class="s1">if </span><span class="s0">tool_call</span><span class="s3">.</span><span class="s0">function</span><span class="s3">.</span><span class="s0">name </span><span class="s3">== </span><span class="s4">&quot;checkDoctorAppointments&quot;</span><span class="s3">:</span>
+            <span class="s0">arguments </span><span class="s3">= </span><span class="s0">json</span><span class="s3">.</span><span class="s0">loads</span><span class="s3">(</span><span class="s0">tool_call</span><span class="s3">.</span><span class="s0">function</span><span class="s3">.</span><span class="s0">arguments</span><span class="s3">)</span>
+            <span class="s0">id </span><span class="s3">= </span><span class="s0">arguments</span><span class="s3">.</span><span class="s0">get</span><span class="s3">(</span><span class="s4">'id'</span><span class="s3">)</span>
+            <span class="s0">details </span><span class="s3">= </span><span class="s0">checkDoctorAppointments</span><span class="s3">(</span><span class="s0">id</span><span class="s3">)</span>
+            <span class="s0">responses</span><span class="s3">.</span><span class="s0">append</span><span class="s3">({</span>
+                <span class="s4">&quot;role&quot;</span><span class="s3">: </span><span class="s4">&quot;tool&quot;</span><span class="s3">,</span>
+                <span class="s4">&quot;content&quot;</span><span class="s3">: </span><span class="s0">details</span><span class="s3">,</span>
+                <span class="s4">&quot;tool_call_id&quot;</span><span class="s3">: </span><span class="s0">tool_call</span><span class="s3">.</span><span class="s0">id</span>
+            <span class="s3">})</span>
+        <span class="s1">if </span><span class="s0">tool_call</span><span class="s3">.</span><span class="s0">function</span><span class="s3">.</span><span class="s0">name </span><span class="s3">== </span><span class="s4">&quot;setDoctorAppointments&quot;</span><span class="s3">:</span>
+            <span class="s0">arguments </span><span class="s3">= </span><span class="s0">json</span><span class="s3">.</span><span class="s0">loads</span><span class="s3">(</span><span class="s0">tool_call</span><span class="s3">.</span><span class="s0">function</span><span class="s3">.</span><span class="s0">arguments</span><span class="s3">)</span>
+            <span class="s0">patient_name </span><span class="s3">= </span><span class="s0">arguments</span><span class="s3">.</span><span class="s0">get</span><span class="s3">(</span><span class="s4">'patient_name'</span><span class="s3">)</span>
+            <span class="s0">patient_contact </span><span class="s3">= </span><span class="s0">arguments</span><span class="s3">.</span><span class="s0">get</span><span class="s3">(</span><span class="s4">'patient_contact'</span><span class="s3">)</span>
+            <span class="s0">patient_issue </span><span class="s3">= </span><span class="s0">arguments</span><span class="s3">.</span><span class="s0">get</span><span class="s3">(</span><span class="s4">'patient_issue'</span><span class="s3">)</span>
+            <span class="s0">doctor_name </span><span class="s3">= </span><span class="s0">arguments</span><span class="s3">.</span><span class="s0">get</span><span class="s3">(</span><span class="s4">'doctor_name'</span><span class="s3">)</span>
+            <span class="s0">doctor_id </span><span class="s3">= </span><span class="s0">arguments</span><span class="s3">.</span><span class="s0">get</span><span class="s3">(</span><span class="s4">'doctor_id'</span><span class="s3">)</span>
+            <span class="s0">appointment_time </span><span class="s3">= </span><span class="s0">arguments</span><span class="s3">.</span><span class="s0">get</span><span class="s3">(</span><span class="s4">'appointment_time'</span><span class="s3">)</span>
+            <span class="s0">details </span><span class="s3">= </span><span class="s0">setDoctorAppointments</span><span class="s3">(</span><span class="s0">patient_name</span><span class="s3">, </span><span class="s0">patient_contact</span><span class="s3">, </span><span class="s0">patient_issue</span><span class="s3">, </span><span class="s0">doctor_name</span><span class="s3">, </span><span class="s0">doctor_id</span><span class="s3">, </span><span class="s0">appointment_time</span><span class="s3">)</span>
+            <span class="s0">responses</span><span class="s3">.</span><span class="s0">append</span><span class="s3">({</span>
+                <span class="s4">&quot;role&quot;</span><span class="s3">: </span><span class="s4">&quot;tool&quot;</span><span class="s3">,</span>
+                <span class="s4">&quot;content&quot;</span><span class="s3">: </span><span class="s0">details</span><span class="s3">,</span>
+                <span class="s4">&quot;tool_call_id&quot;</span><span class="s3">: </span><span class="s0">tool_call</span><span class="s3">.</span><span class="s0">id</span>
+            <span class="s3">})</span>
+    <span class="s1">return </span><span class="s0">responses</span>
+
+<span class="s1">def </span><span class="s0">chat</span><span class="s3">(</span><span class="s0">message</span><span class="s3">, </span><span class="s0">history</span><span class="s3">):</span>
+    <span class="s0">history </span><span class="s3">= [{</span><span class="s4">&quot;role&quot;</span><span class="s3">:</span><span class="s0">h</span><span class="s3">[</span><span class="s4">&quot;role&quot;</span><span class="s3">], </span><span class="s4">&quot;content&quot;</span><span class="s3">:</span><span class="s0">h</span><span class="s3">[</span><span class="s4">&quot;content&quot;</span><span class="s3">]} </span><span class="s1">for </span><span class="s0">h </span><span class="s1">in </span><span class="s0">history</span><span class="s3">]</span>
+    <span class="s0">messages </span><span class="s3">= [{</span><span class="s4">&quot;role&quot;</span><span class="s3">: </span><span class="s4">&quot;system&quot;</span><span class="s3">, </span><span class="s4">&quot;content&quot;</span><span class="s3">: </span><span class="s0">system_message</span><span class="s3">}] + </span><span class="s0">history </span><span class="s3">+ [{</span><span class="s4">&quot;role&quot;</span><span class="s3">: </span><span class="s4">&quot;user&quot;</span><span class="s3">, </span><span class="s4">&quot;content&quot;</span><span class="s3">: </span><span class="s0">message</span><span class="s3">}]</span>
+    <span class="s0">response </span><span class="s3">= </span><span class="s0">openai</span><span class="s3">.</span><span class="s0">chat</span><span class="s3">.</span><span class="s0">completions</span><span class="s3">.</span><span class="s0">create</span><span class="s3">(</span><span class="s0">model</span><span class="s3">=</span><span class="s0">MODEL</span><span class="s3">, </span><span class="s0">messages</span><span class="s3">=</span><span class="s0">messages</span><span class="s3">, </span><span class="s0">tools</span><span class="s3">=</span><span class="s0">tools</span><span class="s3">)</span>
+
+    <span class="s1">while </span><span class="s0">response</span><span class="s3">.</span><span class="s0">choices</span><span class="s3">[</span><span class="s5">0</span><span class="s3">].</span><span class="s0">finish_reason</span><span class="s3">==</span><span class="s4">&quot;tool_calls&quot;</span><span class="s3">:</span>
+        <span class="s0">message </span><span class="s3">= </span><span class="s0">response</span><span class="s3">.</span><span class="s0">choices</span><span class="s3">[</span><span class="s5">0</span><span class="s3">].</span><span class="s0">message</span>
+        <span class="s0">responses </span><span class="s3">= </span><span class="s0">handle_tool_calls</span><span class="s3">(</span><span class="s0">message</span><span class="s3">)</span>
+        <span class="s0">messages</span><span class="s3">.</span><span class="s0">append</span><span class="s3">(</span><span class="s0">message</span><span class="s3">)</span>
+        <span class="s0">messages</span><span class="s3">.</span><span class="s0">extend</span><span class="s3">(</span><span class="s0">responses</span><span class="s3">)</span>
+        <span class="s0">response </span><span class="s3">= </span><span class="s0">openai</span><span class="s3">.</span><span class="s0">chat</span><span class="s3">.</span><span class="s0">completions</span><span class="s3">.</span><span class="s0">create</span><span class="s3">(</span><span class="s0">model</span><span class="s3">=</span><span class="s0">MODEL</span><span class="s3">, </span><span class="s0">messages</span><span class="s3">=</span><span class="s0">messages</span><span class="s3">, </span><span class="s0">tools</span><span class="s3">=</span><span class="s0">tools</span><span class="s3">)</span>
+
+    <span class="s1">return </span><span class="s0">response</span><span class="s3">.</span><span class="s0">choices</span><span class="s3">[</span><span class="s5">0</span><span class="s3">].</span><span class="s0">message</span><span class="s3">.</span><span class="s0">content</span><hr class="ls0"><span class="s0">#%% 
+gr</span><span class="s3">.</span><span class="s0">ChatInterface</span><span class="s3">(</span><span class="s0">fn</span><span class="s3">=</span><span class="s0">chat</span><span class="s3">, </span><span class="s0">type</span><span class="s3">=</span><span class="s4">&quot;messages&quot;</span><span class="s3">).</span><span class="s0">launch</span><span class="s3">(</span><span class="s0">show_error</span><span class="s3">=</span><span class="s1">True</span><span class="s3">, </span><span class="s0">inbrowser</span><span class="s3">=</span><span class="s1">True</span><span class="s3">)</span><hr class="ls0"><span class="s0">#%% 
+hell</span></pre>
+</body>
+</html>
